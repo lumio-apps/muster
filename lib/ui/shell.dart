@@ -6,6 +6,7 @@ import '../theme.dart';
 import 'advances_page.dart';
 import 'attendance_page.dart';
 import 'common.dart';
+import 'reports_page.dart';
 import 'salary_page.dart';
 import 'settings_page.dart';
 import 'workers_page.dart';
@@ -36,6 +37,8 @@ class _ShellState extends State<Shell> {
         return SalaryPage(state: widget.state);
       case 3:
         return AdvancesPage(state: widget.state);
+      case 4:
+        return ReportsPage(state: widget.state);
       default:
         return SettingsPage(state: widget.state);
     }
@@ -110,11 +113,11 @@ class _ShellState extends State<Shell> {
                   selected: _index == 3,
                   onTap: () => setState(() => _index = 3),
                 ),
-                const _NavItem(
+                _NavItem(
                   icon: Icons.summarize_outlined,
                   label: 'Reports',
-                  selected: false,
-                  soon: true,
+                  selected: _index == 4,
+                  onTap: () => setState(() => _index = 4),
                 ),
                 const Spacer(),
                 const Divider(height: 1, color: kBorder),
@@ -122,8 +125,8 @@ class _ShellState extends State<Shell> {
                 _NavItem(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
-                  selected: _index == 4,
-                  onTap: () => setState(() => _index = 4),
+                  selected: _index == 5,
+                  onTap: () => setState(() => _index = 5),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -141,19 +144,17 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.selected,
-    this.onTap,
-    this.soon = false,
+    required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
-  final VoidCallback? onTap;
-  final bool soon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = soon ? const Color(0xFF9A9A9A) : (selected ? kNavy : kInk);
+    final color = selected ? kNavy : kInk;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
@@ -161,7 +162,7 @@ class _NavItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         child: InkWell(
           borderRadius: BorderRadius.circular(6),
-          onTap: soon ? null : onTap,
+          onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             child: Row(
@@ -186,12 +187,6 @@ class _NavItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (soon)
-                  const Pill(
-                    text: 'Soon',
-                    color: kMuted,
-                    background: kGreySoft,
-                  ),
               ],
             ),
           ),
