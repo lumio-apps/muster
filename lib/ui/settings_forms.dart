@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state.dart';
+import '../theme.dart';
 import 'common.dart';
 
 /// Holds the text controllers shared by the setup wizard and Settings page.
@@ -16,6 +17,7 @@ class SettingsFormController {
         breakMin = TextEditingController(text: '${s.breakMinutes}'),
         grace = TextEditingController(text: '${s.lateGrace}'),
         ot = TextEditingController(text: fmtNum(s.otMultiplier)),
+        paidLeave = s.paidLeave,
         weeklyOff = {...s.weeklyOff};
 
   final TextEditingController company;
@@ -29,6 +31,7 @@ class SettingsFormController {
   final TextEditingController grace;
   final TextEditingController ot;
   Set<int> weeklyOff;
+  bool paidLeave;
 
   void dispose() {
     company.dispose();
@@ -57,6 +60,7 @@ class SettingsFormController {
       'late_grace': grace.text.trim(),
       'ot_multiplier': ot.text.trim(),
       'weekly_off': days.join(','),
+      'paid_leave': paidLeave ? '1' : '0',
     };
   }
 }
@@ -187,6 +191,17 @@ class _WorkRulesFieldsState extends State<WorkRulesFields> {
         WeekdayChips(
           selected: c.weeklyOff,
           onChanged: (next) => setState(() => c.weeklyOff = next),
+        ),
+        const SizedBox(height: 10),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Leave (L) is paid'),
+          subtitle: const Text(
+            'Switch off to treat leave days as unpaid in salary.',
+            style: kSubtle,
+          ),
+          value: c.paidLeave,
+          onChanged: (v) => setState(() => c.paidLeave = v),
         ),
       ],
     );

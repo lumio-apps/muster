@@ -63,6 +63,9 @@ class AppState extends ChangeNotifier {
   double get otMultiplier =>
       double.tryParse(settings['ot_multiplier'] ?? '') ?? 1.5;
 
+  /// Whether leave (L) days are paid.
+  bool get paidLeave => (settings['paid_leave'] ?? '1') == '1';
+
   Set<int> get weeklyOff => (settings['weekly_off'] ?? '7')
       .split(',')
       .map((e) => int.tryParse(e.trim()))
@@ -110,6 +113,23 @@ class AppState extends ChangeNotifier {
     workers = await db.workers();
     notifyListeners();
   }
+
+  // ---- salary ----
+
+  DateTime salaryMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  List<Attendance> monthRecords = [];
+
+  Future<void> setSalaryMonth(DateTime m) async {
+    salaryMonth = DateTime(m.year, m.month, 1);
+    final last = DateTime(m.year, m.month + 1, 0);
+    monthRecords = await db.attendanceBetween(
+      dateKey(salaryMonth),
+      dateKey(last),
+    );
+    notifyListeners();
+  }
+
+  Future<void> loadSalaryMonth() => setSalaryMonth(salaryMonth);
 
   // ---- attendance ----
 

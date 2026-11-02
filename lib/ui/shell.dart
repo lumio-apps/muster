@@ -5,6 +5,7 @@ import '../state.dart';
 import '../theme.dart';
 import 'attendance_page.dart';
 import 'common.dart';
+import 'salary_page.dart';
 import 'settings_page.dart';
 import 'workers_page.dart';
 
@@ -30,6 +31,8 @@ class _ShellState extends State<Shell> {
         );
       case 1:
         return WorkersPage(state: widget.state);
+      case 2:
+        return SalaryPage(state: widget.state);
       default:
         return SettingsPage(state: widget.state);
     }
@@ -92,11 +95,11 @@ class _ShellState extends State<Shell> {
                   selected: _index == 1,
                   onTap: () => setState(() => _index = 1),
                 ),
-                const _NavItem(
+                _NavItem(
                   icon: Icons.payments_outlined,
                   label: 'Salary',
-                  selected: false,
-                  soon: true,
+                  selected: _index == 2,
+                  onTap: () => setState(() => _index = 2),
                 ),
                 const _NavItem(
                   icon: Icons.request_quote_outlined,
@@ -116,8 +119,8 @@ class _ShellState extends State<Shell> {
                 _NavItem(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
-                  selected: _index == 2,
-                  onTap: () => setState(() => _index = 2),
+                  selected: _index == 3,
+                  onTap: () => setState(() => _index = 3),
                 ),
                 const SizedBox(height: 10),
               ],

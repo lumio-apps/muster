@@ -131,4 +131,14 @@ class AppDb {
       whereArgs: [workerId, date],
     );
   }
+
+  /// All attendance records from [from] to [to] (both "yyyy-MM-dd").
+  Future<List<Attendance>> attendanceBetween(String from, String to) async {
+    final rows = await _db.query(
+      'attendance',
+      where: 'date >= ? AND date <= ?',
+      whereArgs: [from, to],
+    );
+    return rows.map(Attendance.fromMap).toList();
+  }
 }
