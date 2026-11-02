@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../state.dart';
 import '../theme.dart';
+import 'advances_page.dart';
 import 'attendance_page.dart';
 import 'common.dart';
 import 'salary_page.dart';
@@ -33,6 +34,8 @@ class _ShellState extends State<Shell> {
         return WorkersPage(state: widget.state);
       case 2:
         return SalaryPage(state: widget.state);
+      case 3:
+        return AdvancesPage(state: widget.state);
       default:
         return SettingsPage(state: widget.state);
     }
@@ -101,11 +104,11 @@ class _ShellState extends State<Shell> {
                   selected: _index == 2,
                   onTap: () => setState(() => _index = 2),
                 ),
-                const _NavItem(
+                _NavItem(
                   icon: Icons.request_quote_outlined,
                   label: 'Advances',
-                  selected: false,
-                  soon: true,
+                  selected: _index == 3,
+                  onTap: () => setState(() => _index = 3),
                 ),
                 const _NavItem(
                   icon: Icons.summarize_outlined,
@@ -119,8 +122,8 @@ class _ShellState extends State<Shell> {
                 _NavItem(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
-                  selected: _index == 3,
-                  onTap: () => setState(() => _index = 3),
+                  selected: _index == 4,
+                  onTap: () => setState(() => _index = 4),
                 ),
                 const SizedBox(height: 10),
               ],

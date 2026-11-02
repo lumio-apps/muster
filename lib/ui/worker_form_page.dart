@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 
+import '../currencies.dart';
 import '../db.dart';
 import '../models.dart';
 import '../state.dart';
@@ -300,7 +301,7 @@ class _WorkerFormPageState extends State<WorkerFormPage> {
                                 controller: _rate,
                                 decoration: fieldDec(
                                   _payType.rateLabel,
-                                  prefix: s.currency,
+                                  prefix: symbolPrefix(s.currency),
                                   suffix: _payType.suffix,
                                 ),
                                 validator: numberValidator,

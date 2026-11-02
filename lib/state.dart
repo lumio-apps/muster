@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'calc.dart';
+import 'currencies.dart';
 import 'db.dart';
 import 'models.dart';
 
@@ -43,6 +44,8 @@ class AppState extends ChangeNotifier {
     settings = await db.allSettings();
     workers = await db.workers();
     attendance = await db.attendanceOn(dateKey(day));
+    advances = await db.advances();
+    runs = await db.salaryRuns();
     notifyListeners();
   }
 
@@ -55,7 +58,28 @@ class AppState extends ChangeNotifier {
   String get ownerName => settings['owner_name'] ?? '';
   String get phone => settings['phone'] ?? '';
   String get address => settings['address'] ?? '';
-  String get currency => settings['currency'] ?? '₹';
+  /// ISO code of the chosen currency, for example "AMD".
+  String get currencyCode {
+    final code = settings['currency_code'];
+    if (code != null && isKnownCurrency(code)) return code;
+    // Version 1.0 / 1.1 stored only a symbol.
+    final legacy = settings['currency'];
+    if (legacy != null) {
+      for (final c in kCurrencies) {
+        if (c.symbol == legacy) return c.code;
+      }
+    }
+    return kDefaultCurrencyCode;
+  }
+
+  /// Symbol shown before amounts, for example "֏".
+  String get currency {
+    if (!settings.containsKey('currency_code')) {
+      final legacy = settings['currency'];
+      if (legacy != null && legacy.isNotEmpty) return legacy;
+    }
+    return currencyByCode(currencyCode).symbol;
+  }
   String get shiftStart => settings['shift_start'] ?? '08:00';
   String get shiftEnd => settings['shift_end'] ?? '17:00';
   int get breakMinutes => int.tryParse(settings['break_minutes'] ?? '') ?? 60;
@@ -112,6 +136,75 @@ class AppState extends ChangeNotifier {
     await db.updateWorker(w);
     workers = await db.workers();
     notifyListeners();
+  }
+
+  // ---- advances and paid salaries ----
+
+  List<Advance> advances = [];
+  List<SalaryRun> runs = [];
+
+  double balanceOf(int workerId) => outstandingAdvance(advances, runs, workerId);
+
+  SalaryRun? runFor(int workerId, String month) {
+    for (final r in runs) {
+      if (r.workerId == workerId && r.month == month) return r;
+    }
+    return null;
+  }
+
+  Future<void> _reloadMoney() async {
+    advances = await db.advances();
+    runs = await db.salaryRuns();
+    notifyListeners();
+  }
+
+  Future<void> giveAdvance(
+    Worker w,
+    double amount,
+    DateTime date,
+    String note,
+  ) async {
+    await db.insertAdvance(
+      Advance(
+        workerId: w.id!,
+        date: dateKey(date),
+        amount: amount,
+        note: note,
+      ),
+    );
+    await _reloadMoney();
+  }
+
+  Future<void> removeAdvance(Advance a) async {
+    final id = a.id;
+    if (id == null) return;
+    await db.deleteAdvance(id);
+    await _reloadMoney();
+  }
+
+  /// Marks a month's salary as paid and records how much advance was
+  /// recovered from it.
+  Future<void> markPaid(
+    int workerId,
+    String month,
+    double gross,
+    double deducted,
+  ) async {
+    await db.saveSalaryRun(
+      SalaryRun(
+        workerId: workerId,
+        month: month,
+        gross: gross,
+        deducted: deducted,
+        paidOn: dateKey(today),
+      ),
+    );
+    await _reloadMoney();
+  }
+
+  Future<void> undoPaid(int workerId, String month) async {
+    await db.deleteSalaryRun(workerId, month);
+    await _reloadMoney();
   }
 
   // ---- salary ----

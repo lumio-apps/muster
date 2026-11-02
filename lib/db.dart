@@ -28,11 +28,20 @@ class AppDb {
     final db = await databaseFactoryFfi.openDatabase(
       AppPaths.dbFile,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys = ON');
         },
-        onCreate: _create,
+        onCreate: (db, version) async {
+          await _create(db, version);
+          await _createMoney(db);
+        },
+        // Upgrades only add tables. Existing data is never touched.
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await _createMoney(db);
+          }
+        },
       ),
     );
     return AppDb._(db);
@@ -72,6 +81,32 @@ class AppDb {
         check_out TEXT,
         ot_hours REAL NOT NULL DEFAULT 0,
         UNIQUE (worker_id, date),
+        FOREIGN KEY (worker_id) REFERENCES workers (id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  /// Added in database version 2: advances and paid salaries.
+  static Future<void> _createMoney(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS advances (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        worker_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        amount REAL NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        FOREIGN KEY (worker_id) REFERENCES workers (id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS salary_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        worker_id INTEGER NOT NULL,
+        month TEXT NOT NULL,
+        gross REAL NOT NULL,
+        advance_deducted REAL NOT NULL DEFAULT 0,
+        paid_on TEXT NOT NULL,
+        UNIQUE (worker_id, month),
         FOREIGN KEY (worker_id) REFERENCES workers (id) ON DELETE CASCADE
       )
     ''');
@@ -129,6 +164,40 @@ class AppDb {
       'attendance',
       where: 'worker_id = ? AND date = ?',
       whereArgs: [workerId, date],
+    );
+  }
+
+  // ---- advances and paid salaries ----
+
+  Future<List<Advance>> advances() async {
+    final rows = await _db.query('advances', orderBy: 'date DESC, id DESC');
+    return rows.map(Advance.fromMap).toList();
+  }
+
+  Future<int> insertAdvance(Advance a) => _db.insert('advances', a.toMap());
+
+  Future<void> deleteAdvance(int id) async {
+    await _db.delete('advances', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<SalaryRun>> salaryRuns() async {
+    final rows = await _db.query('salary_runs');
+    return rows.map(SalaryRun.fromMap).toList();
+  }
+
+  Future<void> saveSalaryRun(SalaryRun r) async {
+    await _db.insert(
+      'salary_runs',
+      r.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteSalaryRun(int workerId, String month) async {
+    await _db.delete(
+      'salary_runs',
+      where: 'worker_id = ? AND month = ?',
+      whereArgs: [workerId, month],
     );
   }
 

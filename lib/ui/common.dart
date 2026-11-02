@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../calc.dart';
+import '../currencies.dart';
 import '../models.dart';
 import '../theme.dart';
 
@@ -34,7 +35,33 @@ String fmtMoney(double v, String currency) {
   final f = v == v.roundToDouble()
       ? NumberFormat('#,##0')
       : NumberFormat('#,##0.00');
-  return '$currency${f.format(v)}';
+  return '${symbolPrefix(currency)}${f.format(v)}';
+}
+
+Future<bool> confirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String yes = 'Yes',
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(yes),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
 }
 
 double? parseNum(String s) => double.tryParse(s.trim().replaceAll(',', ''));

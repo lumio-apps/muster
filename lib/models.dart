@@ -123,6 +123,97 @@ class Worker {
       );
 }
 
+/// Money given to a worker in advance.
+class Advance {
+  Advance({
+    this.id,
+    required this.workerId,
+    required this.date,
+    required this.amount,
+    this.note = '',
+  });
+
+  int? id;
+  final int workerId;
+  final String date;
+  final double amount;
+  final String note;
+
+  Map<String, Object?> toMap() => {
+        'worker_id': workerId,
+        'date': date,
+        'amount': amount,
+        'note': note,
+      };
+
+  factory Advance.fromMap(Map<String, Object?> m) => Advance(
+        id: m['id'] as int,
+        workerId: m['worker_id'] as int,
+        date: m['date'] as String,
+        amount: (m['amount'] as num).toDouble(),
+        note: (m['note'] as String?) ?? '',
+      );
+}
+
+/// A salary that was marked as paid for one worker and one month.
+class SalaryRun {
+  const SalaryRun({
+    required this.workerId,
+    required this.month,
+    required this.gross,
+    required this.deducted,
+    required this.paidOn,
+  });
+
+  final int workerId;
+
+  /// "yyyy-MM"
+  final String month;
+  final double gross;
+
+  /// Advance recovered from this salary.
+  final double deducted;
+  final String paidOn;
+
+  double get net => gross - deducted;
+
+  Map<String, Object?> toMap() => {
+        'worker_id': workerId,
+        'month': month,
+        'gross': gross,
+        'advance_deducted': deducted,
+        'paid_on': paidOn,
+      };
+
+  factory SalaryRun.fromMap(Map<String, Object?> m) => SalaryRun(
+        workerId: m['worker_id'] as int,
+        month: m['month'] as String,
+        gross: (m['gross'] as num).toDouble(),
+        deducted: (m['advance_deducted'] as num).toDouble(),
+        paidOn: m['paid_on'] as String,
+      );
+}
+
+/// Advance still to be recovered from a worker:
+/// everything given minus everything already deducted from salaries.
+double outstandingAdvance(
+  Iterable<Advance> advances,
+  Iterable<SalaryRun> runs,
+  int workerId,
+) {
+  var given = 0.0;
+  for (final a in advances) {
+    if (a.workerId == workerId) given += a.amount;
+  }
+  var back = 0.0;
+  for (final r in runs) {
+    if (r.workerId == workerId) back += r.deducted;
+  }
+  final bal = given - back;
+  if (bal < 0.005) return 0.0;
+  return (bal * 100).roundToDouble() / 100;
+}
+
 /// One worker's attendance for one day. Status: P, A, H or L.
 class Attendance {
   Attendance({

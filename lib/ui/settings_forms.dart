@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../currencies.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'common.dart';
@@ -11,7 +12,7 @@ class SettingsFormController {
         owner = TextEditingController(text: s.ownerName),
         phone = TextEditingController(text: s.phone),
         address = TextEditingController(text: s.address),
-        currency = TextEditingController(text: s.currency),
+        currencyCode = s.currencyCode,
         shiftStart = TextEditingController(text: s.shiftStart),
         shiftEnd = TextEditingController(text: s.shiftEnd),
         breakMin = TextEditingController(text: '${s.breakMinutes}'),
@@ -24,12 +25,12 @@ class SettingsFormController {
   final TextEditingController owner;
   final TextEditingController phone;
   final TextEditingController address;
-  final TextEditingController currency;
   final TextEditingController shiftStart;
   final TextEditingController shiftEnd;
   final TextEditingController breakMin;
   final TextEditingController grace;
   final TextEditingController ot;
+  String currencyCode;
   Set<int> weeklyOff;
   bool paidLeave;
 
@@ -38,7 +39,6 @@ class SettingsFormController {
     owner.dispose();
     phone.dispose();
     address.dispose();
-    currency.dispose();
     shiftStart.dispose();
     shiftEnd.dispose();
     breakMin.dispose();
@@ -53,7 +53,7 @@ class SettingsFormController {
       'owner_name': owner.text.trim(),
       'phone': phone.text.trim(),
       'address': address.text.trim(),
-      'currency': currency.text.trim().isEmpty ? '₹' : currency.text.trim(),
+      'currency_code': currencyCode,
       'shift_start': shiftStart.text.trim(),
       'shift_end': shiftEnd.text.trim(),
       'break_minutes': breakMin.text.trim(),
@@ -105,12 +105,120 @@ class CompanyFields extends StatelessWidget {
           decoration: fieldDec('Address'),
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          width: 200,
-          child: TextFormField(
-            controller: c.currency,
-            decoration: fieldDec('Currency symbol', hint: '₹'),
-          ),
+        SizedBox(width: 380, child: CurrencyField(c: c)),
+      ],
+    );
+  }
+}
+
+/// Field that opens a searchable list of currencies.
+class CurrencyField extends StatefulWidget {
+  const CurrencyField({super.key, required this.c});
+
+  final SettingsFormController c;
+
+  @override
+  State<CurrencyField> createState() => _CurrencyFieldState();
+}
+
+class _CurrencyFieldState extends State<CurrencyField> {
+  Future<void> _pick() async {
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => _CurrencyDialog(selected: widget.c.currencyCode),
+    );
+    if (code != null && mounted) {
+      setState(() => widget.c.currencyCode = code);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cur = currencyByCode(widget.c.currencyCode);
+    return InkWell(
+      onTap: _pick,
+      child: InputDecorator(
+        decoration: fieldDec('Currency').copyWith(
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+        ),
+        child: Text('${cur.symbol}   ${cur.code} – ${cur.name}'),
+      ),
+    );
+  }
+}
+
+class _CurrencyDialog extends StatefulWidget {
+  const _CurrencyDialog({required this.selected});
+
+  final String selected;
+
+  @override
+  State<_CurrencyDialog> createState() => _CurrencyDialogState();
+}
+
+class _CurrencyDialogState extends State<_CurrencyDialog> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim().toLowerCase();
+    final list = kCurrencies.where((c) {
+      if (q.isEmpty) return true;
+      return c.code.toLowerCase().contains(q) ||
+          c.name.toLowerCase().contains(q) ||
+          c.symbol.toLowerCase().contains(q);
+    }).toList();
+
+    return AlertDialog(
+      title: const Text('Choose currency'),
+      content: SizedBox(
+        width: 440,
+        height: 460,
+        child: Column(
+          children: [
+            TextField(
+              autofocus: true,
+              decoration: fieldDec('Search currency or code').copyWith(
+                prefixIcon: const Icon(Icons.search, size: 18),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: list.isEmpty
+                  ? const Center(
+                      child: Text('No currency found.', style: kSubtle),
+                    )
+                  : ListView.builder(
+                      itemCount: list.length,
+                      itemBuilder: (context, i) {
+                        final c = list[i];
+                        return ListTile(
+                          dense: true,
+                          selected: c.code == widget.selected,
+                          leading: SizedBox(
+                            width: 48,
+                            child: Text(
+                              c.symbol,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          title: Text('${c.code} – ${c.name}'),
+                          onTap: () => Navigator.of(context).pop(c.code),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
         ),
       ],
     );

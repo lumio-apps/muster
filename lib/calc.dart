@@ -45,6 +45,9 @@ String dateKey(DateTime d) {
   return '${d.year}-$mm-$dd';
 }
 
+/// "2026-04" style key for a month.
+String monthKey(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
 DateTime parseDateKey(String s) {
   final p = s.split('-');
   return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
