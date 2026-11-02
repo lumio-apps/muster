@@ -28,18 +28,22 @@ class AppDb {
     final db = await databaseFactoryFfi.openDatabase(
       AppPaths.dbFile,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys = ON');
         },
         onCreate: (db, version) async {
           await _create(db, version);
           await _createMoney(db);
+          await _createExtras(db);
         },
         // Upgrades only add tables. Existing data is never touched.
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
             await _createMoney(db);
+          }
+          if (oldVersion < 3) {
+            await _createExtras(db);
           }
         },
       ),
@@ -151,6 +155,27 @@ class AppDb {
     ''');
   }
 
+  /// Added in database version 3: company holidays, bonuses and fines.
+  static Future<void> _createExtras(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS holidays (
+        date TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS adjustments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        worker_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        amount REAL NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        FOREIGN KEY (worker_id) REFERENCES workers (id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
   // ---- settings ----
 
   Future<Map<String, String>> allSettings() async {
@@ -238,6 +263,37 @@ class AppDb {
       where: 'worker_id = ? AND month = ?',
       whereArgs: [workerId, month],
     );
+  }
+
+  // ---- holidays, bonuses and fines ----
+
+  Future<List<Holiday>> holidays() async {
+    final rows = await _db.query('holidays', orderBy: 'date');
+    return rows.map(Holiday.fromMap).toList();
+  }
+
+  Future<void> saveHoliday(Holiday h) async {
+    await _db.insert(
+      'holidays',
+      h.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteHoliday(String date) async {
+    await _db.delete('holidays', where: 'date = ?', whereArgs: [date]);
+  }
+
+  Future<List<Adjustment>> adjustments() async {
+    final rows = await _db.query('adjustments', orderBy: 'date DESC, id DESC');
+    return rows.map(Adjustment.fromMap).toList();
+  }
+
+  Future<int> insertAdjustment(Adjustment a) =>
+      _db.insert('adjustments', a.toMap());
+
+  Future<void> deleteAdjustment(int id) async {
+    await _db.delete('adjustments', where: 'id = ?', whereArgs: [id]);
   }
 
   /// All attendance records from [from] to [to] (both "yyyy-MM-dd").

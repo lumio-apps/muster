@@ -250,3 +250,57 @@ class Attendance {
         otHours: (m['ot_hours'] as num?)?.toDouble() ?? 0,
       );
 }
+
+/// A company holiday on one date.
+class Holiday {
+  const Holiday({required this.date, required this.name});
+
+  /// "yyyy-MM-dd"
+  final String date;
+  final String name;
+
+  Map<String, Object?> toMap() => {'date': date, 'name': name};
+
+  factory Holiday.fromMap(Map<String, Object?> m) => Holiday(
+        date: m['date'] as String,
+        name: (m['name'] as String?) ?? '',
+      );
+}
+
+/// A bonus (added to salary) or a fine (taken from salary) for one worker.
+class Adjustment {
+  Adjustment({
+    this.id,
+    required this.workerId,
+    required this.date,
+    required this.isBonus,
+    required this.amount,
+    this.note = '',
+  });
+
+  int? id;
+  final int workerId;
+
+  /// "yyyy-MM-dd". The salary month is taken from this date.
+  final String date;
+  final bool isBonus;
+  final double amount;
+  final String note;
+
+  Map<String, Object?> toMap() => {
+        'worker_id': workerId,
+        'date': date,
+        'kind': isBonus ? 'bonus' : 'fine',
+        'amount': amount,
+        'note': note,
+      };
+
+  factory Adjustment.fromMap(Map<String, Object?> m) => Adjustment(
+        id: m['id'] as int,
+        workerId: m['worker_id'] as int,
+        date: m['date'] as String,
+        isBonus: m['kind'] == 'bonus',
+        amount: (m['amount'] as num).toDouble(),
+        note: (m['note'] as String?) ?? '',
+      );
+}

@@ -29,6 +29,34 @@ class SalaryLine {
   double get net => gross - deduct;
 }
 
+/// Salary of one worker for [AppState.salaryMonth], with company holidays,
+/// late fine, bonuses and fines applied.
+SalaryResult salaryFor(AppState s, Worker w, List<Attendance> records) {
+  final key = monthKey(s.salaryMonth);
+  var bonus = 0.0;
+  var fine = 0.0;
+  for (final a in s.adjustmentsFor(w.id!, key)) {
+    if (a.isBonus) {
+      bonus += a.amount;
+    } else {
+      fine += a.amount;
+    }
+  }
+  return calculateSalary(
+    worker: w,
+    timing: s.timingFor(w),
+    records: records,
+    month: s.salaryMonth,
+    paidLeave: s.paidLeave,
+    today: s.today,
+    holidays: s.holidayKeys,
+    holidayPaid: s.holidayPaid,
+    lateFineEach: s.lateFine,
+    bonus: bonus,
+    fine: fine,
+  );
+}
+
 /// Salary lines for the month in [AppState.salaryMonth].
 /// Pass [only] to limit the result to some worker ids.
 List<SalaryLine> buildSalaryLines(AppState s, {Set<int>? only}) {
@@ -44,14 +72,7 @@ List<SalaryLine> buildSalaryLines(AppState s, {Set<int>? only}) {
     final recs = byWorker[id] ?? <Attendance>[];
     final run = s.runFor(id, key);
     if (!w.active && recs.isEmpty && run == null) continue;
-    final r = calculateSalary(
-      worker: w,
-      timing: s.timingFor(w),
-      records: recs,
-      month: s.salaryMonth,
-      paidLeave: s.paidLeave,
-      today: s.today,
-    );
+    final r = salaryFor(s, w, recs);
     if (r.eligibleDays <= 0 && recs.isEmpty && run == null) continue;
     out.add(SalaryLine(result: r, run: run, balance: s.balanceOf(id)));
   }

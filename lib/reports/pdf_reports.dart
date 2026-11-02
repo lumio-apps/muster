@@ -157,6 +157,38 @@ pw.Widget _slip(
         _cell(reportMoney(r.otPay, cur), right: true),
       ],
     ),
+    if (r.holidayDays > 0)
+      pw.TableRow(
+        children: [
+          _cell('Paid holidays'),
+          _cell('Included in base pay', color: _grey, size: 9),
+          _cell('${r.holidayDays} days', right: true),
+        ],
+      ),
+    if (r.bonus > 0)
+      pw.TableRow(
+        children: [
+          _cell('Bonus'),
+          _cell('', color: _grey, size: 9),
+          _cell('+ ${reportMoney(r.bonus, cur)}', right: true),
+        ],
+      ),
+    if (r.fine > 0)
+      pw.TableRow(
+        children: [
+          _cell('Fines'),
+          _cell('', color: _grey, size: 9),
+          _cell('- ${reportMoney(r.fine, cur)}', right: true),
+        ],
+      ),
+    if (r.lateFine > 0)
+      pw.TableRow(
+        children: [
+          _cell('Late fine'),
+          _cell('${r.lateCount} late arrivals', color: _grey, size: 9),
+          _cell('- ${reportMoney(r.lateFine, cur)}', right: true),
+        ],
+      ),
     pw.TableRow(
       decoration: const pw.BoxDecoration(color: _soft),
       children: [

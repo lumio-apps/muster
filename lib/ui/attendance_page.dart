@@ -42,6 +42,7 @@ class AttendancePage extends StatelessWidget {
             list.where((w) => state.attendance[w.id] == null).length;
         final isToday = state.day == state.today;
         final off = state.weeklyOff.contains(state.day.weekday);
+        final holiday = state.holidayOn(state.day);
 
         return Padding(
           padding: const EdgeInsets.all(24),
@@ -92,6 +93,30 @@ class AttendancePage extends StatelessWidget {
                 const Padding(
                   padding: EdgeInsets.only(top: 4),
                   child: Text('This day is a weekly off.', style: kSubtle),
+                ),
+              if (holiday != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      const Pill(
+                        text: 'Company holiday',
+                        color: kBlue,
+                        background: kBlueSoft,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          holiday.name.isEmpty
+                              ? 'Workers not marked today are not counted '
+                                  'absent.'
+                              : '${holiday.name}. Workers not marked today '
+                                  'are not counted absent.',
+                          style: kSubtle,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               const SizedBox(height: 14),
               Row(
@@ -260,6 +285,14 @@ class _AttendanceRow extends StatelessWidget {
               background: kOrangeSoft,
             ),
           ],
+          if (isLateArrival(
+            checkIn: rec.checkIn,
+            start: t.start,
+            graceMinutes: t.lateGrace,
+          )) ...[
+            const SizedBox(width: 8),
+            const Pill(text: 'Late', color: kRed, background: kRedSoft),
+          ],
           IconButton(
             tooltip: 'Edit in / out time',
             visualDensity: VisualDensity.compact,
@@ -297,7 +330,7 @@ class _AttendanceRow extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(width: 230, child: info),
+          SizedBox(width: 290, child: info),
           SegmentedButton<String>(
             showSelectedIcon: false,
             emptySelectionAllowed: true,

@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../updater.dart';
 import 'backup_panel.dart';
 import 'common.dart';
+import 'holidays_panel.dart';
 import 'security_panel.dart';
 import 'settings_forms.dart';
 
@@ -276,6 +277,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              HolidaysPanel(state: widget.state),
               const SizedBox(height: 16),
               SecurityPanel(state: widget.state),
               const SizedBox(height: 16),

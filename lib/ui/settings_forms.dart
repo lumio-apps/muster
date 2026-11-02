@@ -19,6 +19,10 @@ class SettingsFormController {
         grace = TextEditingController(text: '${s.lateGrace}'),
         ot = TextEditingController(text: fmtNum(s.otMultiplier)),
         paidLeave = s.paidLeave,
+        lateFine = TextEditingController(
+          text: s.lateFine == 0 ? '' : fmtNum(s.lateFine),
+        ),
+        holidayPaid = s.holidayPaid,
         weeklyOff = {...s.weeklyOff};
 
   final TextEditingController company;
@@ -30,9 +34,11 @@ class SettingsFormController {
   final TextEditingController breakMin;
   final TextEditingController grace;
   final TextEditingController ot;
+  final TextEditingController lateFine;
   String currencyCode;
   Set<int> weeklyOff;
   bool paidLeave;
+  bool holidayPaid;
 
   void dispose() {
     company.dispose();
@@ -44,6 +50,7 @@ class SettingsFormController {
     breakMin.dispose();
     grace.dispose();
     ot.dispose();
+    lateFine.dispose();
   }
 
   Map<String, String> toMap() {
@@ -61,6 +68,8 @@ class SettingsFormController {
       'ot_multiplier': ot.text.trim(),
       'weekly_off': days.join(','),
       'paid_leave': paidLeave ? '1' : '0',
+      'late_fine': lateFine.text.trim().isEmpty ? '0' : lateFine.text.trim(),
+      'holiday_paid': holidayPaid ? '1' : '0',
     };
   }
 }
@@ -290,6 +299,25 @@ class _WorkRulesFieldsState extends State<WorkRulesFields> {
             ),
           ],
         ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: 300,
+          child: TextFormField(
+            controller: c.lateFine,
+            decoration: fieldDec(
+              'Fine for each late arrival',
+              hint: '0 = no fine',
+            ),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? null : numberValidator(v),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'A worker is late when check-in is after work start plus the late '
+          'grace. The fine is taken from salary for every late day.',
+          style: kSubtle,
+        ),
         const SizedBox(height: 18),
         const Text(
           'Weekly off',
@@ -310,6 +338,17 @@ class _WorkRulesFieldsState extends State<WorkRulesFields> {
           ),
           value: c.paidLeave,
           onChanged: (v) => setState(() => c.paidLeave = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Company holidays are paid'),
+          subtitle: const Text(
+            'Daily and hourly workers get a paid day for each company '
+            'holiday. Monthly workers are always paid.',
+            style: kSubtle,
+          ),
+          value: c.holidayPaid,
+          onChanged: (v) => setState(() => c.holidayPaid = v),
         ),
       ],
     );

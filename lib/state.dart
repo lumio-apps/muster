@@ -47,6 +47,8 @@ class AppState extends ChangeNotifier {
     attendance = await db.attendanceOn(dateKey(day));
     advances = await db.advances();
     runs = await db.salaryRuns();
+    holidays = await db.holidays();
+    adjustments = await db.adjustments();
     locked = pinEnabled;
     notifyListeners();
   }
@@ -174,6 +176,12 @@ class AppState extends ChangeNotifier {
   /// Whether leave (L) days are paid.
   bool get paidLeave => (settings['paid_leave'] ?? '1') == '1';
 
+  /// Fine taken for every late arrival. 0 means no automatic fine.
+  double get lateFine => double.tryParse(settings['late_fine'] ?? '') ?? 0;
+
+  /// Whether company holidays are paid for daily and hourly workers.
+  bool get holidayPaid => (settings['holiday_paid'] ?? '1') == '1';
+
   Set<int> get weeklyOff => (settings['weekly_off'] ?? '7')
       .split(',')
       .map((e) => int.tryParse(e.trim()))
@@ -289,6 +297,69 @@ class AppState extends ChangeNotifier {
   Future<void> undoPaid(int workerId, String month) async {
     await db.deleteSalaryRun(workerId, month);
     await _reloadMoney();
+  }
+
+  // ---- company holidays ----
+
+  List<Holiday> holidays = [];
+
+  Set<String> get holidayKeys => {for (final h in holidays) h.date};
+
+  Holiday? holidayOn(DateTime d) {
+    final k = dateKey(d);
+    for (final h in holidays) {
+      if (h.date == k) return h;
+    }
+    return null;
+  }
+
+  Future<void> addHoliday(DateTime date, String name) async {
+    await db.saveHoliday(Holiday(date: dateKey(date), name: name.trim()));
+    holidays = await db.holidays();
+    notifyListeners();
+  }
+
+  Future<void> removeHoliday(String date) async {
+    await db.deleteHoliday(date);
+    holidays = await db.holidays();
+    notifyListeners();
+  }
+
+  // ---- bonus and fines ----
+
+  List<Adjustment> adjustments = [];
+
+  /// Bonuses and fines of one worker whose date is in [month] ("yyyy-MM").
+  List<Adjustment> adjustmentsFor(int workerId, String month) => adjustments
+      .where((a) => a.workerId == workerId && a.date.startsWith(month))
+      .toList();
+
+  Future<void> addAdjustment({
+    required Worker worker,
+    required bool isBonus,
+    required double amount,
+    required DateTime date,
+    required String note,
+  }) async {
+    await db.insertAdjustment(
+      Adjustment(
+        workerId: worker.id!,
+        date: dateKey(date),
+        isBonus: isBonus,
+        amount: amount,
+        note: note.trim(),
+      ),
+    );
+    adjustments = await db.adjustments();
+    notifyListeners();
+  }
+
+  Future<void> removeAdjustment(Adjustment a) async {
+    final id = a.id;
+    if (id == null) return;
+    await db.deleteAdjustment(id);
+    adjustments = await db.adjustments();
+    notifyListeners();
   }
 
   // ---- salary ----

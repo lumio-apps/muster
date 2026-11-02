@@ -7,6 +7,7 @@ import '../calc.dart';
 import '../currencies.dart';
 import '../models.dart';
 import '../salary.dart';
+import '../salary_lines.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'common.dart';
@@ -57,14 +58,7 @@ class _SalaryPageState extends State<SalaryPage> {
       final recs = byWorker[w.id] ?? <Attendance>[];
       final run = s.runFor(w.id!, key);
       if (!w.active && recs.isEmpty && run == null) continue;
-      final r = calculateSalary(
-        worker: w,
-        timing: s.timingFor(w),
-        records: recs,
-        month: s.salaryMonth,
-        paidLeave: s.paidLeave,
-        today: s.today,
-      );
+      final r = salaryFor(s, w, recs);
       if (r.eligibleDays <= 0 && recs.isEmpty && run == null) continue;
       out.add(_Line(result: r, run: run, balance: s.balanceOf(w.id!)));
     }
@@ -99,7 +93,9 @@ class _SalaryPageState extends State<SalaryPage> {
         var net = 0.0;
         var paidCount = 0;
         var unmarked = 0;
+        var lateTotal = 0;
         for (final l in lines) {
+          lateTotal += l.result.lateCount;
           gross += l.gross;
           deduct += l.deduct;
           net += l.net;
@@ -174,6 +170,8 @@ class _SalaryPageState extends State<SalaryPage> {
                     kBlue,
                     kBlueSoft,
                   ),
+                  if (lateTotal > 0)
+                    _Tile('Late arrivals', '$lateTotal', kOrange, kOrangeSoft),
                   if (unmarked > 0)
                     _Tile('Days not marked', '$unmarked', kRed, kRedSoft),
                 ],
@@ -307,7 +305,8 @@ class _SalaryRow extends StatelessWidget {
     final r = line.result;
     final w = r.worker;
     final att = '${r.present}P · ${r.half}H · ${r.leave}L · ${r.absent}A'
-        '${r.otHours > 0 ? ' · OT ${fmtNum(r.otHours)} h' : ''}';
+        '${r.otHours > 0 ? ' · OT ${fmtNum(r.otHours)} h' : ''}'
+        '${r.lateCount > 0 ? ' · Late ${r.lateCount}' : ''}';
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -422,7 +421,20 @@ class _DetailDialogState extends State<_DetailDialog> {
     super.dispose();
   }
 
-  SalaryResult get _r => widget.line.result;
+  /// Fresh numbers every time, so bonuses and fines added in this dialog show
+  /// up at once.
+  _Line get _ln {
+    final s = widget.state;
+    final w = widget.line.result.worker;
+    final recs = s.monthRecords.where((x) => x.workerId == w.id).toList();
+    return _Line(
+      result: salaryFor(s, w, recs),
+      run: s.runFor(w.id!, monthKey(s.salaryMonth)),
+      balance: s.balanceOf(w.id!),
+    );
+  }
+
+  SalaryResult get _r => _ln.result;
   String get _cur => widget.state.currency;
 
   double get _typedDeduct => parseNum(_deduct.text) ?? 0;
@@ -444,7 +456,7 @@ class _DetailDialogState extends State<_DetailDialog> {
   Future<void> _pay() async {
     final d = parseNum(_deduct.text);
     final gross = _r.gross;
-    final balance = widget.line.balance;
+    final balance = _ln.balance;
     if (d == null || d < 0) {
       setState(() => _error = 'Enter the advance to deduct (0 for none).');
       return;
@@ -525,9 +537,20 @@ class _DetailDialogState extends State<_DetailDialog> {
       if (rec.status == 'P') {
         detail = '${rec.checkIn ?? '--'} – ${rec.checkOut ?? '--'}';
         if (rec.otHours > 0) detail = '$detail · OT ${fmtNum(rec.otHours)} h';
+        final t = widget.state.timingFor(r.worker);
+        if (isLateArrival(
+          checkIn: rec.checkIn,
+          start: t.start,
+          graceMinutes: t.lateGrace,
+        )) {
+          detail = '$detail · Late';
+        }
       }
     } else if (r.worker.weeklyOff.contains(date.weekday)) {
       tag = const Pill(text: 'Weekly off', color: kMuted, background: kGreySoft);
+    } else if (widget.state.holidayOn(date) != null) {
+      tag = const Pill(text: 'Holiday', color: kBlue, background: kBlueSoft);
+      detail = widget.state.holidayOn(date)!.name;
     } else if (date.isAfter(widget.state.today)) {
       tag = const SizedBox.shrink();
     } else {
@@ -557,7 +580,7 @@ class _DetailDialogState extends State<_DetailDialog> {
   }
 
   Widget _paymentSection() {
-    final line = widget.line;
+    final line = _ln;
     final run = line.run;
     if (run != null) {
       final changed = (run.gross - _r.gross).abs() > 0.005;
@@ -571,7 +594,7 @@ class _DetailDialogState extends State<_DetailDialog> {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Attendance changed after payment. New calculated salary is '
+                'Attendance, bonus or fine changed after payment. New salary is '
                 '${fmtMoney(_r.gross, _cur)}. Undo the payment and pay again '
                 'to update it.',
                 style: const TextStyle(color: kOrange, fontSize: 12),
@@ -622,11 +645,110 @@ class _DetailDialogState extends State<_DetailDialog> {
     );
   }
 
+  Future<void> _addAdjustment(bool isBonus) async {
+    final r = _r;
+    final now = widget.state.today;
+    var date = now;
+    if (now.year != r.month.year || now.month != r.month.month) {
+      date = DateTime(r.month.year, r.month.month + 1, 0);
+    }
+    final res = await showDialog<(double, String)>(
+      context: context,
+      builder: (_) => _AdjustmentDialog(isBonus: isBonus, currency: _cur),
+    );
+    if (res == null) return;
+    await widget.state.addAdjustment(
+      worker: r.worker,
+      isBonus: isBonus,
+      amount: res.$1,
+      date: date,
+      note: res.$2,
+    );
+  }
+
+  Widget _adjustmentsSection() {
+    final r = _r;
+    final key = monthKey(r.month);
+    final list = widget.state.adjustmentsFor(r.worker.id!, key);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Bonus and fines',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _addAdjustment(true),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Bonus'),
+            ),
+            TextButton.icon(
+              onPressed: () => _addAdjustment(false),
+              icon: const Icon(Icons.remove, size: 16),
+              label: const Text('Fine'),
+            ),
+          ],
+        ),
+        if (list.isEmpty)
+          const Text('None this month.', style: kSubtle)
+        else
+          for (final a in list)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 70,
+                    child: Pill(
+                      text: a.isBonus ? 'Bonus' : 'Fine',
+                      color: a.isBonus ? kGreen : kRed,
+                      background: a.isBonus ? kGreenSoft : kRedSoft,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 90,
+                    child: Text(a.date, style: kSubtle),
+                  ),
+                  Expanded(
+                    child: Text(
+                      a.note.isEmpty ? '' : a.note,
+                      overflow: TextOverflow.ellipsis,
+                      style: kSubtle,
+                    ),
+                  ),
+                  Text(
+                    '${a.isBonus ? '+' : '−'} ${fmtMoney(a.amount, _cur)}',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => widget.state.removeAdjustment(a),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                  ),
+                ],
+              ),
+            ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) => _buildDialog(context),
+    );
+  }
+
+  Widget _buildDialog(BuildContext context) {
     final r = _r;
     final w = r.worker;
-    final paid = widget.line.paid;
+    final paid = _ln.paid;
     final byDate = {for (final x in r.records) x.date: x};
     final days = <Widget>[
       for (var d = r.startDay; d <= r.daysInMonth; d++) _dayRow(d, byDate),
@@ -636,9 +758,8 @@ class _DetailDialogState extends State<_DetailDialog> {
       title: Text('${w.name} – ${DateFormat('MMMM yyyy').format(r.month)}'),
       content: SizedBox(
         width: 600,
-        height: 600,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        height: 620,
+        child: ListView(
           children: [
             _line(
               'Pay type',
@@ -646,11 +767,19 @@ class _DetailDialogState extends State<_DetailDialog> {
             ),
             _line('Base pay', fmtMoney(r.basePay, _cur)),
             _note(_rule()),
+            if (r.holidayDays > 0)
+              _note('includes ${r.holidayDays} paid company holiday(s)'),
             _line('Overtime pay', fmtMoney(r.otPay, _cur)),
             _note(
               '${fmtNum(r.otHours)} h × ${fmtMoney(r.hourlyBase, _cur)} × '
               '${fmtNum(w.otMultiplier)}',
             ),
+            if (r.bonus > 0) _line('Bonus', '+ ${fmtMoney(r.bonus, _cur)}'),
+            if (r.fine > 0) _line('Fines', '− ${fmtMoney(r.fine, _cur)}'),
+            if (r.lateCount > 0)
+              _line('Late arrivals', '${r.lateCount} days'),
+            if (r.lateFine > 0)
+              _line('Late fine', '− ${fmtMoney(r.lateFine, _cur)}'),
             const Divider(color: kBorder),
             _line('Gross salary', fmtMoney(r.gross, _cur), bold: true),
             if (r.unmarked > 0) ...[
@@ -662,6 +791,8 @@ class _DetailDialogState extends State<_DetailDialog> {
               ),
             ],
             const Divider(color: kBorder),
+            _adjustmentsSection(),
+            const Divider(color: kBorder),
             _paymentSection(),
             const Divider(color: kBorder),
             const Text(
@@ -669,11 +800,10 @@ class _DetailDialogState extends State<_DetailDialog> {
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
-            Expanded(
-              child: days.isEmpty
-                  ? const Text('Not joined in this month.', style: kSubtle)
-                  : ListView(children: days),
-            ),
+            if (days.isEmpty)
+              const Text('Not joined in this month.', style: kSubtle)
+            else
+              ...days,
           ],
         ),
       ),
@@ -689,6 +819,81 @@ class _DetailDialogState extends State<_DetailDialog> {
             onPressed: _busy ? null : _pay,
             child: const Text('Mark as paid'),
           ),
+      ],
+    );
+  }
+}
+
+/// Asks for the amount and an optional note of a bonus or a fine.
+class _AdjustmentDialog extends StatefulWidget {
+  const _AdjustmentDialog({required this.isBonus, required this.currency});
+
+  final bool isBonus;
+  final String currency;
+
+  @override
+  State<_AdjustmentDialog> createState() => _AdjustmentDialogState();
+}
+
+class _AdjustmentDialogState extends State<_AdjustmentDialog> {
+  final _amount = TextEditingController();
+  final _note = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  void _ok() {
+    final v = parseNum(_amount.text);
+    if (v == null || v <= 0) {
+      setState(() => _error = 'Enter an amount greater than 0.');
+      return;
+    }
+    Navigator.of(context).pop((v, _note.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.isBonus ? 'Add bonus' : 'Add fine'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _amount,
+              autofocus: true,
+              decoration: fieldDec(
+                'Amount',
+                prefix: symbolPrefix(widget.currency),
+              ),
+              onChanged: (_) => setState(() => _error = null),
+              onSubmitted: (_) => _ok(),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _note,
+              decoration: fieldDec('Reason (optional)'),
+              onSubmitted: (_) => _ok(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: const TextStyle(color: kRed, fontSize: 12)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _ok, child: const Text('Add')),
       ],
     );
   }

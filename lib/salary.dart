@@ -27,6 +27,11 @@ class SalaryResult {
     required this.otPay,
     required this.hourlyBase,
     required this.records,
+    this.holidayDays = 0,
+    this.lateCount = 0,
+    this.lateFine = 0,
+    this.bonus = 0,
+    this.fine = 0,
   });
 
   final Worker worker;
@@ -56,7 +61,24 @@ class SalaryResult {
   final double hourlyBase;
   final List<Attendance> records;
 
-  double get gross => _round2(basePay + otPay);
+  /// Paid company holidays added to pay (daily and hourly workers only).
+  final int holidayDays;
+
+  /// Days the worker arrived after start time plus grace.
+  final int lateCount;
+
+  /// Automatic fine for late arrivals.
+  final double lateFine;
+
+  /// Bonuses added by the owner in this month.
+  final double bonus;
+
+  /// Fines added by the owner in this month (not counting [lateFine]).
+  final double fine;
+
+  /// Salary after bonus and fines, before advance recovery. Never below 0.
+  double get gross =>
+      math.max(0.0, _round2(basePay + otPay + bonus - fine - lateFine));
 }
 
 /// Calculates one worker's salary for [month].
@@ -67,6 +89,11 @@ class SalaryResult {
 ///             - 0.5 x half day - unpaid leave). Weekly offs are paid.
 ///  * Hourly:  rate x (hours worked + half days + paid leave days).
 ///  * Overtime: overtime hours x normal hourly pay x overtime multiplier.
+///  * Company holiday: daily / hourly workers get one paid day when the
+///    holiday is not their weekly off and they have no attendance that day.
+///    Monthly workers are paid for holidays already.
+///  * Late arrival: [lateFineEach] is taken for every late day.
+///  * Bonus and fine are added or taken after the above.
 SalaryResult calculateSalary({
   required Worker worker,
   required WorkTiming timing,
@@ -74,6 +101,11 @@ SalaryResult calculateSalary({
   required DateTime month,
   required bool paidLeave,
   required DateTime today,
+  Set<String> holidays = const <String>{},
+  bool holidayPaid = true,
+  double lateFineEach = 0,
+  double bonus = 0,
+  double fine = 0,
 }) {
   final y = month.year;
   final m = month.month;
@@ -99,6 +131,7 @@ SalaryResult calculateSalary({
   var a = 0;
   var ot = 0.0;
   var presentHours = 0.0;
+  var lateDays = 0;
   final seen = <String>{};
 
   for (final r in records) {
@@ -113,6 +146,13 @@ SalaryResult calculateSalary({
             ? std
             : workedHours(inMin: i, outMin: o, breakMin: timing.breakMinutes);
         presentHours += math.max(0.0, worked - r.otHours);
+        if (isLateArrival(
+          checkIn: r.checkIn,
+          start: timing.start,
+          graceMinutes: timing.lateGrace,
+        )) {
+          lateDays++;
+        }
       case 'H':
         h++;
       case 'L':
@@ -123,12 +163,18 @@ SalaryResult calculateSalary({
   }
 
   var unmarked = 0;
+  var holidayDays = 0;
   final todayOnly = _dateOnly(today);
   for (var d = startDay; d <= dim; d++) {
     final date = DateTime(y, m, d);
     if (date.isAfter(todayOnly)) break;
     if (worker.weeklyOff.contains(date.weekday)) continue;
-    if (!seen.contains(dateKey(date))) unmarked++;
+    final key = dateKey(date);
+    if (holidays.contains(key)) {
+      if (!seen.contains(key) && holidayPaid) holidayDays++;
+      continue;
+    }
+    if (!seen.contains(key)) unmarked++;
   }
 
   double units;
@@ -136,7 +182,7 @@ SalaryResult calculateSalary({
   double hourlyBase;
   switch (worker.payType) {
     case PayType.daily:
-      units = p + 0.5 * h + (paidLeave ? l : 0);
+      units = p + 0.5 * h + (paidLeave ? l : 0) + holidayDays;
       base = worker.rate * units;
       hourlyBase = worker.rate / std;
     case PayType.monthly:
@@ -148,7 +194,10 @@ SalaryResult calculateSalary({
       base = perDay * units;
       hourlyBase = perDay / std;
     case PayType.hourly:
-      units = presentHours + h * std / 2 + (paidLeave ? l * std : 0);
+      units = presentHours +
+          h * std / 2 +
+          (paidLeave ? l * std : 0) +
+          holidayDays * std;
       base = worker.rate * units;
       hourlyBase = worker.rate;
   }
@@ -172,5 +221,10 @@ SalaryResult calculateSalary({
     otPay: _round2(otPay),
     hourlyBase: hourlyBase,
     records: records,
+    holidayDays: worker.payType == PayType.monthly ? 0 : holidayDays,
+    lateCount: lateDays,
+    lateFine: _round2(lateDays * lateFineEach),
+    bonus: _round2(bonus),
+    fine: _round2(fine),
   );
 }

@@ -16,7 +16,7 @@ export 'backup_crypto.dart' show BackupException;
 /// Creates and restores password-protected backups (.mbk files).
 /// A backup holds the database and all worker photos.
 class BackupService {
-  static const int currentDbVersion = 2;
+  static const int currentDbVersion = 3;
 
   /// Writes an encrypted backup to [destPath]. Returns the file size.
   static Future<int> create({

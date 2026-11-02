@@ -52,3 +52,15 @@ DateTime parseDateKey(String s) {
   final p = s.split('-');
   return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
 }
+
+/// True when [checkIn] is later than [start] plus [graceMinutes].
+bool isLateArrival({
+  required String? checkIn,
+  required String start,
+  required int graceMinutes,
+}) {
+  final i = parseHm(checkIn ?? '');
+  final s = parseHm(start);
+  if (i == null || s == null) return false;
+  return i > s + graceMinutes;
+}

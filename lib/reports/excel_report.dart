@@ -57,10 +57,14 @@ Uint8List buildSalaryWorkbook({
     'OT hours',
     'Base pay ($cur)',
     'OT pay ($cur)',
+    'Bonus ($cur)',
+    'Fines ($cur)',
     'Gross ($cur)',
     'Advance deducted ($cur)',
     'Net ($cur)',
     'Status',
+    'Late days',
+    'Paid holidays',
   ];
   for (var c = 0; c < headers.length; c++) {
     _put(sheet, c, 2, TextCellValue(headers[c]), headStyle);
@@ -81,10 +85,14 @@ Uint8List buildSalaryWorkbook({
     _put(sheet, 8, row, DoubleCellValue(r.otHours));
     _put(sheet, 9, row, DoubleCellValue(r.basePay));
     _put(sheet, 10, row, DoubleCellValue(r.otPay));
-    _put(sheet, 11, row, DoubleCellValue(l.gross));
-    _put(sheet, 12, row, DoubleCellValue(l.deduct));
-    _put(sheet, 13, row, DoubleCellValue(l.net));
-    _put(sheet, 14, row, TextCellValue(l.paid ? 'Paid' : 'Unpaid'));
+    _put(sheet, 11, row, DoubleCellValue(r.bonus));
+    _put(sheet, 12, row, DoubleCellValue(r.fine + r.lateFine));
+    _put(sheet, 13, row, DoubleCellValue(l.gross));
+    _put(sheet, 14, row, DoubleCellValue(l.deduct));
+    _put(sheet, 15, row, DoubleCellValue(l.net));
+    _put(sheet, 16, row, TextCellValue(l.paid ? 'Paid' : 'Unpaid'));
+    _put(sheet, 17, row, IntCellValue(r.lateCount));
+    _put(sheet, 18, row, IntCellValue(r.holidayDays));
     row++;
   }
 
@@ -92,7 +100,7 @@ Uint8List buildSalaryWorkbook({
     final firstRow = 4; // spreadsheet row number of the first worker
     final lastRow = row; // spreadsheet row number of the last worker
     _put(sheet, 1, row, TextCellValue('TOTAL'), boldStyle);
-    for (final c in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]) {
+    for (final c in [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18]) {
       final letter = _col(c);
       _put(
         sheet,
@@ -139,6 +147,8 @@ Uint8List buildSalaryWorkbook({
         label = rec.status;
       } else if (d >= r.startDay && r.worker.weeklyOff.contains(date.weekday)) {
         label = 'W';
+      } else if (d >= r.startDay && state.holidayOn(date) != null) {
+        label = 'HD';
       }
       if (label.isNotEmpty) {
         _put(att, 1 + d, arow, TextCellValue(label));
@@ -152,7 +162,8 @@ Uint8List buildSalaryWorkbook({
     arow++;
   }
   _put(att, 0, arow + 1,
-      TextCellValue('P Present   H Half day   L Leave   A Absent   W Weekly off'));
+      TextCellValue('P Present   H Half day   L Leave   A Absent   W Weekly off   '
+          'HD Company holiday'));
 
   att.setColumnWidth(1, 24);
 
