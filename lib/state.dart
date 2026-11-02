@@ -4,6 +4,7 @@ import 'calc.dart';
 import 'currencies.dart';
 import 'db.dart';
 import 'models.dart';
+import 'security.dart';
 
 /// Effective working hours for one worker.
 class WorkTiming {
@@ -46,8 +47,91 @@ class AppState extends ChangeNotifier {
     attendance = await db.attendanceOn(dateKey(day));
     advances = await db.advances();
     runs = await db.salaryRuns();
+    locked = pinEnabled;
     notifyListeners();
   }
+
+  // ---- security (PIN lock) and backup ----
+
+  /// True while the lock screen is showing.
+  bool locked = false;
+
+  bool get pinEnabled => (settings['pin_hash'] ?? '').isNotEmpty;
+
+  /// Minutes of inactivity before locking. 0 means never.
+  int get autoLockMinutes =>
+      int.tryParse(settings['auto_lock_minutes'] ?? '') ?? 15;
+
+  /// Date key (yyyy-MM-dd) of the last backup, if any.
+  String? get lastBackup {
+    final v = settings['last_backup'];
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  void lock() {
+    if (!pinEnabled || locked) return;
+    locked = true;
+    notifyListeners();
+  }
+
+  Future<bool> verifyPin(String pin) async {
+    final salt = settings['pin_salt'] ?? '';
+    final hash = settings['pin_hash'] ?? '';
+    if (salt.isEmpty || hash.isEmpty) return false;
+    return await hashSecret(pin, salt) == hash;
+  }
+
+  Future<bool> tryUnlock(String pin) async {
+    if (!await verifyPin(pin)) return false;
+    locked = false;
+    notifyListeners();
+    return true;
+  }
+
+  /// Sets a new PIN and returns the one-time recovery code.
+  Future<String> setPin(String pin) async {
+    final pinSalt = randomSalt();
+    final recoverySalt = randomSalt();
+    final code = generateRecoveryCode();
+    final pinHash = await hashSecret(pin, pinSalt);
+    final recoveryHash =
+        await hashSecret(normalizeRecoveryCode(code), recoverySalt);
+    await saveSettings({
+      'pin_salt': pinSalt,
+      'pin_hash': pinHash,
+      'recovery_salt': recoverySalt,
+      'recovery_hash': recoveryHash,
+    });
+    return code;
+  }
+
+  Future<void> removePin() async {
+    await saveSettings({
+      'pin_salt': '',
+      'pin_hash': '',
+      'recovery_salt': '',
+      'recovery_hash': '',
+    });
+    locked = false;
+    notifyListeners();
+  }
+
+  /// Forgot PIN: a correct recovery code turns the PIN lock off.
+  Future<bool> resetWithRecovery(String code) async {
+    final salt = settings['recovery_salt'] ?? '';
+    final hash = settings['recovery_hash'] ?? '';
+    if (salt.isEmpty || hash.isEmpty) return false;
+    final given = await hashSecret(normalizeRecoveryCode(code), salt);
+    if (given != hash) return false;
+    await removePin();
+    return true;
+  }
+
+  Future<void> setAutoLock(int minutes) =>
+      saveSettings({'auto_lock_minutes': '$minutes'});
+
+  Future<void> markBackupDone() =>
+      saveSettings({'last_backup': dateKey(today)});
 
   DateTime get today => _dateOnly(DateTime.now());
 

@@ -4,6 +4,7 @@ import 'config.dart';
 import 'db.dart';
 import 'state.dart';
 import 'theme.dart';
+import 'ui/lock_page.dart';
 import 'ui/setup_page.dart';
 import 'ui/shell.dart';
 
@@ -32,8 +33,11 @@ class MusterApp extends StatelessWidget {
       theme: buildTheme(),
       home: ListenableBuilder(
         listenable: state,
-        builder: (context, _) =>
-            state.setupDone ? Shell(state: state) : SetupPage(state: state),
+        builder: (context, _) {
+          if (!state.setupDone) return SetupPage(state: state);
+          if (state.locked) return LockPage(state: state);
+          return Shell(state: state);
+        },
       ),
     );
   }

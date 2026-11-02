@@ -10,7 +10,9 @@ import '../db.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../updater.dart';
+import 'backup_panel.dart';
 import 'common.dart';
+import 'security_panel.dart';
 import 'settings_forms.dart';
 
 enum _Stage { idle, checking, upToDate, available, installing, error }
@@ -274,6 +276,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              SecurityPanel(state: widget.state),
+              const SizedBox(height: 16),
+              BackupPanel(state: widget.state),
               const SizedBox(height: 16),
               Panel(
                 child: Column(

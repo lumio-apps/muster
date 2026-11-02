@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../config.dart';
 import '../state.dart';
@@ -23,6 +26,46 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int _index = 0;
+  DateTime _lastActivity = DateTime.now();
+  Timer? _idleTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+    _idleTimer = Timer.periodic(const Duration(seconds: 15), (_) => _checkIdle());
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    _idleTimer?.cancel();
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent event) {
+    _touch();
+    return false;
+  }
+
+  void _touch() => _lastActivity = DateTime.now();
+
+  void _checkIdle() {
+    final s = widget.state;
+    final minutes = s.autoLockMinutes;
+    if (!s.pinEnabled || s.locked || minutes <= 0) return;
+    if (DateTime.now().difference(_lastActivity) >=
+        Duration(minutes: minutes)) {
+      _lock();
+    }
+  }
+
+  void _lock() {
+    if (!mounted) return;
+    // Close dialogs and pushed pages so nothing stays visible over the lock.
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    widget.state.lock();
+  }
 
   Widget _page() {
     switch (_index) {
@@ -47,7 +90,13 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final company = widget.state.companyName;
-    return Scaffold(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _touch(),
+      onPointerMove: (_) => _touch(),
+      onPointerHover: (_) => _touch(),
+      onPointerSignal: (_) => _touch(),
+      child: Scaffold(
       body: Row(
         children: [
           Container(
@@ -122,6 +171,17 @@ class _ShellState extends State<Shell> {
                 const Spacer(),
                 const Divider(height: 1, color: kBorder),
                 const SizedBox(height: 6),
+                ListenableBuilder(
+                  listenable: widget.state,
+                  builder: (context, _) => widget.state.pinEnabled
+                      ? _NavItem(
+                          icon: Icons.lock_outline,
+                          label: 'Lock now',
+                          selected: false,
+                          onTap: _lock,
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 _NavItem(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
@@ -134,6 +194,7 @@ class _ShellState extends State<Shell> {
           ),
           Expanded(child: _page()),
         ],
+      ),
       ),
     );
   }

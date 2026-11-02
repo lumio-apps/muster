@@ -44,8 +44,47 @@ class AppDb {
         },
       ),
     );
-    return AppDb._(db);
+    final appDb = AppDb._(db);
+    await appDb._normalizePhotos();
+    return appDb;
   }
+
+  /// Worker photo paths are stored as full paths. After a backup is restored
+  /// on another computer or user account the folder is different, so point
+  /// each path at the photos folder of this computer.
+  Future<void> _normalizePhotos() async {
+    try {
+      final rows = await _db.query(
+        'workers',
+        columns: ['id', 'photo_path'],
+        where: "photo_path IS NOT NULL AND photo_path != ''",
+      );
+      for (final r in rows) {
+        final old = r['photo_path'] as String;
+        final fixed = p.join(AppPaths.photosDir, p.basename(old));
+        if (fixed != old && File(fixed).existsSync()) {
+          await _db.update(
+            'workers',
+            {'photo_path': fixed},
+            where: 'id = ?',
+            whereArgs: [r['id']],
+          );
+        }
+      }
+    } catch (_) {
+      // A photo problem must never stop the app from opening.
+    }
+  }
+
+  /// Writes a consistent copy of the whole database to [path].
+  Future<void> snapshotTo(String path) async {
+    final f = File(path);
+    if (f.existsSync()) f.deleteSync();
+    final escaped = path.replaceAll("'", "''");
+    await _db.execute("VACUUM INTO '$escaped'");
+  }
+
+  Future<void> close() => _db.close();
 
   static Future<void> _create(Database db, int version) async {
     await db.execute(
