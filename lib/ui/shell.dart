@@ -9,6 +9,8 @@ import '../theme.dart';
 import 'advances_page.dart';
 import 'attendance_page.dart';
 import 'common.dart';
+import 'dashboard_page.dart';
+import 'month_grid_page.dart';
 import 'reports_page.dart';
 import 'salary_page.dart';
 import 'settings_page.dart';
@@ -70,17 +72,24 @@ class _ShellState extends State<Shell> {
   Widget _page() {
     switch (_index) {
       case 0:
-        return AttendancePage(
+        return DashboardPage(
           state: widget.state,
-          onGoWorkers: () => setState(() => _index = 1),
+          onGo: (i) => setState(() => _index = i),
         );
       case 1:
-        return WorkersPage(state: widget.state);
+        return AttendancePage(
+          state: widget.state,
+          onGoWorkers: () => setState(() => _index = 3),
+        );
       case 2:
-        return SalaryPage(state: widget.state);
+        return MonthGridPage(state: widget.state);
       case 3:
-        return AdvancesPage(state: widget.state);
+        return WorkersPage(state: widget.state);
       case 4:
+        return SalaryPage(state: widget.state);
+      case 5:
+        return AdvancesPage(state: widget.state);
+      case 6:
         return ReportsPage(state: widget.state);
       default:
         return SettingsPage(state: widget.state);
@@ -139,34 +148,46 @@ class _ShellState extends State<Shell> {
                   ),
                 ),
                 _NavItem(
-                  icon: Icons.fact_check_outlined,
-                  label: 'Attendance',
+                  icon: Icons.space_dashboard_outlined,
+                  label: 'Dashboard',
                   selected: _index == 0,
                   onTap: () => setState(() => _index = 0),
                 ),
                 _NavItem(
-                  icon: Icons.groups_outlined,
-                  label: 'Workers',
+                  icon: Icons.fact_check_outlined,
+                  label: 'Attendance',
                   selected: _index == 1,
                   onTap: () => setState(() => _index = 1),
                 ),
                 _NavItem(
-                  icon: Icons.payments_outlined,
-                  label: 'Salary',
+                  icon: Icons.calendar_view_month_outlined,
+                  label: 'Month grid',
                   selected: _index == 2,
                   onTap: () => setState(() => _index = 2),
                 ),
                 _NavItem(
-                  icon: Icons.request_quote_outlined,
-                  label: 'Advances',
+                  icon: Icons.groups_outlined,
+                  label: 'Workers',
                   selected: _index == 3,
                   onTap: () => setState(() => _index = 3),
                 ),
                 _NavItem(
-                  icon: Icons.summarize_outlined,
-                  label: 'Reports',
+                  icon: Icons.payments_outlined,
+                  label: 'Salary',
                   selected: _index == 4,
                   onTap: () => setState(() => _index = 4),
+                ),
+                _NavItem(
+                  icon: Icons.request_quote_outlined,
+                  label: 'Advances',
+                  selected: _index == 5,
+                  onTap: () => setState(() => _index = 5),
+                ),
+                _NavItem(
+                  icon: Icons.summarize_outlined,
+                  label: 'Reports',
+                  selected: _index == 6,
+                  onTap: () => setState(() => _index = 6),
                 ),
                 const Spacer(),
                 const Divider(height: 1, color: kBorder),
@@ -185,8 +206,8 @@ class _ShellState extends State<Shell> {
                 _NavItem(
                   icon: Icons.settings_outlined,
                   label: 'Settings',
-                  selected: _index == 5,
-                  onTap: () => setState(() => _index = 5),
+                  selected: _index == 7,
+                  onTap: () => setState(() => _index = 7),
                 ),
                 const SizedBox(height: 10),
               ],

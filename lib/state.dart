@@ -230,6 +230,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Adds many workers at once (file import). Returns how many were added.
+  Future<int> importWorkers(List<Worker> list) async {
+    for (final w in list) {
+      await db.insertWorker(w);
+    }
+    workers = await db.workers();
+    notifyListeners();
+    return list.length;
+  }
+
   // ---- advances and paid salaries ----
 
   List<Advance> advances = [];
@@ -409,6 +419,29 @@ class AppState extends ChangeNotifier {
   Future<void> mark(Worker w, String status) async {
     await _put(w, status);
     notifyListeners();
+  }
+
+  /// Marks (or clears, when [status] is null) one worker on any past day.
+  /// Used by the month grid.
+  Future<void> markOn(Worker w, DateTime date, String? status) async {
+    final key = dateKey(_dateOnly(date));
+    if (status == null) {
+      await db.deleteAttendance(w.id!, key);
+    } else {
+      final t = timingFor(w);
+      final isPresent = status == 'P';
+      await db.saveAttendance(
+        Attendance(
+          workerId: w.id!,
+          date: key,
+          status: status,
+          checkIn: isPresent ? t.start : null,
+          checkOut: isPresent ? t.end : null,
+        ),
+      );
+    }
+    attendance = await db.attendanceOn(dateKey(day));
+    await setSalaryMonth(salaryMonth);
   }
 
   Future<void> clearMark(Worker w) async {

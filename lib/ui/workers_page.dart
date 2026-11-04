@@ -4,6 +4,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import 'common.dart';
+import 'import_dialog.dart';
 import 'worker_form_page.dart';
 
 /// List of all workers with search; tap a row to edit.
@@ -74,6 +75,15 @@ class _WorkersPageState extends State<WorkersPage> {
                     label: const Text('Show inactive'),
                     selected: _showInactive,
                     onSelected: (v) => setState(() => _showInactive = v),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => ImportWorkersDialog(state: state),
+                    ),
+                    icon: const Icon(Icons.upload_file, size: 18),
+                    label: const Text('Import'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(

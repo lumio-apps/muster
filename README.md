@@ -5,7 +5,7 @@
 **Free, offline attendance and salary software for Windows.**
 Mark attendance, calculate salaries, track advances, and print salary slips for your workers. Everything stays on your computer.
 
-[Download](https://github.com/lumio-apps/muster/releases/latest) · [Report a problem](https://github.com/lumio-apps/muster/issues) · aditym02@outlook.com
+[Download](https://github.com/aditymishr098-collab/muster/releases/latest) · [Report a problem](https://github.com/aditymishr098-collab/muster/issues) · aditym02@outlook.com
 
 </div>
 
@@ -22,11 +22,15 @@ Small shops, workshops and factories often keep attendance in a notebook and wor
 
 ## Features
 
+### Dashboard
+- First screen: today's present, absent, half day, leave, late and not-marked workers, this month's net payable and pending advances, and a short list of what needs your attention.
+
 ### Attendance
 - Mark every worker **Present / Absent / Half day / Leave** with one click, or **Mark all present**.
 - Set exact check-in and check-out times. Overtime is worked out automatically in half-hour steps.
 - **Late arrivals** are flagged when check-in is after work start plus the late grace.
 - Go back to any earlier day to fix a mistake.
+- **Month grid**: the whole month on one screen, a row per worker and a box per day. Click a box to set P, A, H or L, like a paper register.
 - Company holidays and weekly offs are recognised, so those days are never counted as absent.
 
 ### Workers
@@ -34,6 +38,7 @@ Small shops, workshops and factories often keep attendance in a notebook and wor
 - Three pay types: **daily wage**, **monthly salary**, **hourly**.
 - Own overtime rate, own working hours and own weekly off for each worker, or follow the company defaults.
 - Mark a worker inactive instead of deleting, so old salary records stay correct.
+- **Import** many workers at once from an Excel (.xlsx) or CSV file. A sample file is included in the import window.
 
 ### Salary
 - Month-by-month salary for every worker, with a clear day-by-day breakdown.
@@ -63,7 +68,7 @@ Muster can update itself from inside the app. Every update is downloaded over HT
 
 ## Install
 
-1. Open the [latest release](https://github.com/lumio-apps/muster/releases/latest).
+1. Open the [latest release](https://github.com/aditymishr098-collab/muster/releases/latest).
 2. Download `Muster-vX.Y.Z-windows.zip`.
 3. Extract the zip to a folder of your choice, for example `C:\Muster`.
 4. Run `muster.exe`.
@@ -111,7 +116,7 @@ A short setup asks for your company name, currency, working hours, weekly off an
 You need the [Flutter SDK](https://docs.flutter.dev/get-started/install/windows/desktop) (stable channel) with Windows desktop support.
 
 ```bash
-git clone https://github.com/lumio-apps/muster.git
+git clone https://github.com/aditymishr098-collab/muster.git
 cd muster
 flutter pub get
 flutter analyze
@@ -149,14 +154,14 @@ tool/                  Key generation and signing scripts
 
 Releases are built by GitHub Actions when a version tag is pushed.
 
-1. Change `version:` in `pubspec.yaml`, for example `1.6.0+7`.
+1. Change `version:` in `pubspec.yaml`, for example `1.7.0+8`.
 2. Commit and push. The **Build** workflow checks that everything compiles.
 3. Create and push the tag:
    ```bash
-   git tag v1.6.0
-   git push origin v1.6.0
+   git tag v1.7.0
+   git push origin v1.7.0
    ```
-4. The **Release** workflow analyzes, tests, builds, zips, signs and publishes `Muster-v1.6.0-windows.zip` with its `.sig` file.
+4. The **Release** workflow analyzes, tests, builds, zips, signs and publishes `Muster-v1.7.0-windows.zip` with its `.sig` file.
 
 The tag must match the version in `pubspec.yaml`, otherwise the release stops.
 
@@ -172,8 +177,6 @@ dart run tool/gen_keys.dart
 
 ## Roadmap
 
-- Month grid view and Excel/CSV import of workers
-- Dashboard with today's summary
 - Encrypted database
 - More languages (Hindi, Armenian, Russian)
 - Dark mode
@@ -183,7 +186,7 @@ dart run tool/gen_keys.dart
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. Please open an [issue](https://github.com/lumio-apps/muster/issues) first for bigger changes. Run `flutter analyze` and `flutter test` before sending code.
+Bug reports, ideas and pull requests are welcome. Please open an [issue](https://github.com/aditymishr098-collab/muster/issues) first for bigger changes. Run `flutter analyze` and `flutter test` before sending code.
 
 ## License
 
@@ -193,6 +196,6 @@ Free and open source. See the [LICENSE](LICENSE) file.
 
 <div align="center">
 
-Made by **Lumio Apps** · privacy first: offline, no ads, no tracking
+Made by **Adity Mishra** · privacy first: offline, no ads, no tracking
 
 </div>
